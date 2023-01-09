@@ -1857,17 +1857,20 @@ have the PDF buffer automatically move along with us."
             pdf-annot-list-document-buffer
             (pdf-annot-getannot id pdf-annot-list-document-buffer)))))
 
+;;;###autoload
 (defun pdf-annot-reply-start ()
   (interactive)
   (let ((buf pdf-annot-list-document-buffer)
 	(page-num (string-to-number (seq-first (tabulated-list-get-entry))))
 	(annot-id (tabulated-list-get-id)))
-    (switch-to-buffer (get-buffer-create "*PDF ANNOTATION*"))
+    (switch-to-buffer (get-buffer-create "*PDF ANNOT REPLY*"))
+    (pdf-annot-reply-mode)
     (setq-local pdf-annot-list-document-buffer buf)
     (setq-local pdf-annot-list-page-num page-num)
     (setq-local pdf-annot-list-annot-id annot-id)
     ))
 
+;;;###autoload
 (defun pdf-annot-reply-commit ()
   (interactive)
   (pdf-info-query 'replyannot
@@ -1878,6 +1881,11 @@ have the PDF buffer automatically move along with us."
   (with-current-buffer pdf-annot-list-document-buffer
     (set-buffer-modified-p t))
   (kill-buffer (current-buffer)))
+
+(define-derived-mode pdf-annot-reply-mode org-mode "Annot Reply" nil)
+
+(define-key pdf-annot-list-mode-map (kbd "i") 'pdf-annot-reply-start)
+(define-key pdf-annot-reply-mode-map (kbd "C-c C-c") 'pdf-annot-reply-commit)
 
 (define-minor-mode pdf-annot-list-follow-minor-mode
   "Make the PDF follow the annotations in the list buffer."
