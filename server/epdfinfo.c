@@ -2748,6 +2748,62 @@ cmd_delannot (const epdfinfo_t *ctx, const command_arg_t *args)
   if (page) g_object_unref (page);
 }
 
+const command_arg_type_t cmd_replyannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* first page */
+    ARG_NONEMPTY_STRING,        /* annotation key */
+    ARG_NONEMPTY_STRING,        /* contents */
+  };
+
+static void
+cmd_replyannot (const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  const document_t *doc = args->value.doc;
+  const gint pn = args[1].value.natnum;
+  const gchar *key = args[2].value.string;
+  const gchar *contents = args[3].value.string;
+  const annotation_t *a = annotation_get_by_key (doc, key);
+  GList *annotations;
+
+  perror_if_not (a, "No such annotation: %s", key);
+
+  PopplerPage *page;
+  page = poppler_document_get_page(doc->pdf, pn - 1);
+  perror_if_not (page, "No such page %d", pn);
+
+  const PopplerAnnot *pa = poppler_annot_text_reply_new(a->amap->annot, contents);
+  perror_if_not (pa, "Replying annotation failed: %s", key);
+
+  PopplerAnnotMapping *amap;
+  amap = poppler_annot_mapping_new ();
+  amap->area = a->amap->area;
+  amap->annot = pa;
+  annotations = annoation_get_for_page (doc, pn);
+
+  int i = g_list_length (annotations);
+  gchar *new_key = g_strdup_printf ("annot-%d-%d", pn, i);
+  while (g_hash_table_lookup (doc->annotations.keys, new_key))
+    {
+      g_free (new_key);
+      new_key = g_strdup_printf ("annot-%d-%d", pn, ++i);
+    }
+
+  annotation_t *new_amap = g_malloc (sizeof (annotation_t));
+
+  new_amap->amap = amap;
+  new_amap->key = new_key;
+  doc->annotations.pages[pn - 1] = g_list_prepend (annotations, new_amap);
+  g_hash_table_insert (doc->annotations.keys, new_key, new_amap);
+  poppler_page_add_annot (page, pa);
+
+  OK_BEGIN ();
+  annotation_print (new_amap, page);
+  OK_END ();
+ error:
+  if (page) g_object_unref (page);
+}
+
 const command_arg_type_t cmd_editannot_spec[] =
   {
     ARG_DOC,
@@ -3592,6 +3648,7 @@ static const command_t commands [] =
 #ifdef HAVE_POPPLER_ANNOT_WRITE
     DEC_CMD (addannot),
     DEC_CMD (delannot),
+    DEC_CMD (replyannot),
     DEC_CMD (editannot),
     DEC_CMD (save),
 #endif
